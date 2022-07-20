@@ -1,0 +1,235 @@
+---
+title: "Predict the manner in which we did the exercise"
+author: "Cylia YACEF"
+date: "20/07/2022"
+output: html_document
+---
+
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+### Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Projct Purpose
+
+The goal of your project is to predict the manner in which they did the exercise. This is the “classe” variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+## Preproccessing the training and testing dataset
+### Loading the library
+
+
+
+
+
+```{r }
+library(plyr)
+library(dplyr)
+library(lattice)
+library(ggplot2)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(kernlab)
+library(randomForest)
+library(knitr)
+library(e1071)
+
+```
+
+```{r}
+
+#leading the data
+trainingst <- read.csv("pml-training.csv")
+testingst <- read.csv("pml-testing.csv")
+
+```
+
+```{r}
+dim(trainingst)
+dim(testingst)
+```
+### Cleaning data
+we should Exclude the obvious columns i.e  "X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp","roll_belt"  which are the first 7 columns. We should also delete missing values and variables with near zero variance.
+
+```{r}
+#Deleting missing values 
+trainingst <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))  
+testingst <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
+
+```{r}
+
+#Removing variables with near zero variance
+trainingst<-trainingst[,colSums(is.na(trainingst)) == 0]
+testingst <-testingst[,colSums(is.na(testingst)) == 0]
+
+```
+
+```{r}
+
+#Removing columns that are not predictors, which are the the seven first columns
+trainingst   <-trainingst[,-c(1:7)]
+testingst <-testingst[,-c(1:7)]
+
+```
+
+
+```{r}
+dim(trainingst)
+dim(testingst )
+
+```
+From the above code block sum(completeCase) == nrows confirm that the number of complete case is equal to number of rows in trainingdf same for testingdf
+
+Now we have only 53 columns(features) are left. we can preproccess the training and testing i.e converting into scales of 0 to 1 and replacing any NA values to average of that columns.
+
+## Preprocessing data
+### removed the near Zero Var columns.
+### Normalize the data
+
+```{r}
+processedData <- function(rawdata) {
+  # each columns NA should be replaced with average of that columns
+  for(column in names(rawdata)) {               
+    if(column == "classe") {
+      next;
+    }
+    columnValue <- as.numeric(rawdata[, column]);
+    avgColumnValue <- mean(columnValue, na.rm=TRUE)
+    minColumnValue <- min(columnValue, na.rm=TRUE)
+    maxColumnValue <- max(columnValue, na.rm=TRUE)
+    columnValue[is.na(columnValue)] <- avgColumnValue
+    
+    if (maxColumnValue == minColumnValue) {
+      next;
+    }
+    
+    for(i in 1:length(columnValue)) {
+      columnValue[i] <- round((columnValue[i] - minColumnValue) / (maxColumnValue - minColumnValue), 4);
+    }
+    
+    rawdata[, column] <- columnValue
+  }
+  rawdata
+}
+## Get the processed training data frame
+trainingst <- processedData(trainingst)
+testingst <- processedData(testingst)
+
+dim(trainingst)
+dim(testingst )
+
+```
+
+## Partition the data set into training and testing data from trainingst
+
+```{r}
+inTrain <- createDataPartition(y = trainingst$classe, p=0.75, list = FALSE)
+training <- trainingst[inTrain, ]
+testing <- trainingst[-inTrain, ]
+```
+
+## Training the model
+
+### Training the model with Decision Trees
+
+```{r}
+set.seed(40000)
+fitDT <- rpart(classe ~ .,training, method="class")
+# Normal plot
+rpart.plot(fitDT)
+
+```
+
+```{r eval=FALSE, include=FALSE}
+fancyRpartPlot(fitDT)
+```
+
+```{r}
+
+#Use model to predict classe in validation testing set
+predictionDT <- predict(fitDT, testing, type = "class")
+
+```
+
+```{r}
+#Estimate the errors of the prediction algorithm in the Decision Tree model
+cmdt <-confusionMatrix(as.factor(testing$classe), predictionDT)
+cmdt
+
+```
+
+
+```{r}
+
+# Accuracy plot
+plot(cmdt$table, col = cmdt$byClass, 
+main = paste("Decision Tree Confusion Matrix: Accuracy =", round(cmdt$overall['Accuracy'], 4)))
+
+
+```
+ 
+## Training the model using Random Forest
+
+```{r}
+
+rfModel <- randomForest(as.factor(classe)~., data=training)
+# Summary of the model
+rfModel
+
+```
+
+```{r}
+
+#plot the model
+plot(rfModel)
+
+```
+
+```{r}
+
+# Plot the variable importance
+varImpPlot(rfModel)
+
+```
+
+
+```{r}
+# Confusion matrix with testing
+predTesting <- predict(rfModel, testing)
+rfcfm  <- confusionMatrix(as.factor(testing$classe), predTesting)
+rfcfm
+```
+
+```{r}
+plot(rfcfm$table, col = rfcfm$byClass, main = paste("Random Forest Confusion Matrix: Accuracy =", round(rfcfm$overall['Accuracy'], 4)))
+
+```
+
+
+##  Predicting Results on the Test Data
+
+###using decision tree
+
+```{r}
+dtPredictions <- predict(fitDT, testingst,  type= "class")
+dtPredictions
+```
+
+###using random forest 
+
+```{r}
+rfPredictions <- predict(rfModel, testingst,type= "class")
+rfPredictions
+```
