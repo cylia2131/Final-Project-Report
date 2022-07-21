@@ -2,7 +2,9 @@
 title: "Predict the manner in which we did the exercise"
 author: "Cylia YACEF"
 date: "20/07/2022"
-output: html_document
+output:
+  html_document: default
+  word_document: default
 ---
 
 
@@ -27,11 +29,7 @@ The goal of your project is to predict the manner in which they did the exercise
 ## Preproccessing the training and testing dataset
 ### Loading the library
 
-
-
-
-
-```{r }
+```{r echo=T, results="hide", message=F, warning=F}
 library(plyr)
 library(dplyr)
 library(lattice)
@@ -59,7 +57,7 @@ testingst <- read.csv("pml-testing.csv")
 dim(trainingst)
 dim(testingst)
 ```
-### Cleaning data
+### Preprocessing and cleaning data
 we should Exclude the obvious columns i.e  "X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp","roll_belt"  which are the first 7 columns. We should also delete missing values and variables with near zero variance.
 
 ```{r}
@@ -94,43 +92,6 @@ From the above code block sum(completeCase) == nrows confirm that the number of 
 
 Now we have only 53 columns(features) are left. we can preproccess the training and testing i.e converting into scales of 0 to 1 and replacing any NA values to average of that columns.
 
-## Preprocessing data
-### removed the near Zero Var columns.
-### Normalize the data
-
-```{r}
-processedData <- function(rawdata) {
-  # each columns NA should be replaced with average of that columns
-  for(column in names(rawdata)) {               
-    if(column == "classe") {
-      next;
-    }
-    columnValue <- as.numeric(rawdata[, column]);
-    avgColumnValue <- mean(columnValue, na.rm=TRUE)
-    minColumnValue <- min(columnValue, na.rm=TRUE)
-    maxColumnValue <- max(columnValue, na.rm=TRUE)
-    columnValue[is.na(columnValue)] <- avgColumnValue
-    
-    if (maxColumnValue == minColumnValue) {
-      next;
-    }
-    
-    for(i in 1:length(columnValue)) {
-      columnValue[i] <- round((columnValue[i] - minColumnValue) / (maxColumnValue - minColumnValue), 4);
-    }
-    
-    rawdata[, column] <- columnValue
-  }
-  rawdata
-}
-## Get the processed training data frame
-trainingst <- processedData(trainingst)
-testingst <- processedData(testingst)
-
-dim(trainingst)
-dim(testingst )
-
-```
 
 ## Partition the data set into training and testing data from trainingst
 
@@ -217,25 +178,22 @@ plot(rfcfm$table, col = rfcfm$byClass, main = paste("Random Forest Confusion Mat
 ```
 
 
-##  Predicting Results on the Test Data
-
-Summary of the results: - Decision tree model - is the worst model running, has the low mean and the highest standard deviation. -Random Fores model - has the highest mean accuracy and lowest standard deviation
-Depending on how your model is to be used, the interpretation of the kappa statistic might vary. One common interpretation is shown as follows: • Poor agreement = Less than 0.20 • Fair agreement = 0.20 to 0.40 • Moderate agreement = 0.40 to 0.60 • Good agreement = 0.60 to 0.80 • Very good agreement = 0.80 to 1.00
-This two models preforms as expected, the deviation from the cross validation accuracy is low and I do not see a reason to change resampling method or adding repetitons.
-
-
-Summary of the results: 
+### Summary of the results: 
 
 - Decision tree model is the worst model running, it has the low mean and the highest standard deviation. 
 
--Random Fores model it has the highest mean accuracy and lowest standard deviation.
+- Random Fores model it has the highest mean accuracy and lowest standard deviation.
 
 Depending on how your model is to be used, the interpretation of the kappa statistic might vary One common interpretation is shown as follows: 
 
-• Poor agreement = Less than 0.20 
+• Poor agreement = Less than 0.20
+
 • Fair agreement = 0.20 to 0.40 
+
 • Moderate agreement = 0.40 to 0.60 
+
 • Good agreement = 0.60 to 0.80 
+
 • Very good agreement = 0.80 to 1.00
 
 
@@ -253,13 +211,11 @@ plot(rfModel)
 
 The predictive accuracy of the Random Forest model is excellent at 99.8 %. Accuracy has plateaued, and further tuning would only yield decimal gain. 
 
-- The best tuning parameters hads 150 trees (boosting iterations),  interaction depth 3, shrinkage 0.1.
 
 
+## Making prediction on the 20 data pointsusing random forest
 
-###Making prediction on the 20 data pointsusing random forest
-
-Decision Tree Model: 74.58 %, Random Forest Model: 99.86 %
+Decision Tree Model: 73.43%, Random Forest Model: 99.53%
 The Random Forest model is selected and applied to make predictions on the 20 data points from the original testing dataset (testingst)
 
 
